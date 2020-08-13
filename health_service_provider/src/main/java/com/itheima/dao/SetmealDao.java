@@ -7,13 +7,10 @@ import java.util.List;
 import java.util.Map;
 
 public interface SetmealDao {
-    Page<Setmeal> pageQuery(String queryString);
-
-    void add(Setmeal setmeal);
-
-    void setSetmealAndCheckGroup(Map<String, Integer> map);
-
-    List<Setmeal> findAll();
-
-    Setmeal findById(int id);
+    public void add(Setmeal setmeal);
+    public void setSetmealAndCheckGroup(Map map);
+    public Page<Setmeal> pageQuery(String queryString);
+    public List<Setmeal> findAll();
+    public Setmeal findById(int id);
+    public List<Map<String, Object>> findSetmealCount();
 }
