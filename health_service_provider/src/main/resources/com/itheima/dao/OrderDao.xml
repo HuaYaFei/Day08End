@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
-<mapper namespace="com.itheima.dao.OrderDao" >
+<mapper namespace="com.itheima.dao.OrderDao">
     <resultMap id="baseResultMap" type="com.itheima.pojo.Order">
         <id column="id" property="id"/>
         <result column="member_id" property="memberId"/>
@@ -80,5 +80,16 @@
           from t_order o inner join t_setmeal s on s.id = o.setmeal_id
           group by o.setmeal_id
           order by setmeal_count desc limit 0,4
+    </select>
+    <select id="pageQuery" parameterType="string" resultType="Map">
+        SELECT
+        t1.`orderDate` AS orderDate,t2.`fileNumber` AS fileNumber,t2.`name` AS NAME,t2.phonenumber AS phonenumber,
+        t1.`orderType` AS orderType ,t1.`orderStatus` AS orderStatus
+        ,t3.`name` AS sname
+        FROM t_order AS t1 JOIN t_member AS t2 ON t1.`member_id`=t2.`id`
+        JOIN t_setmeal AS t3 ON t1.`setmeal_id`=t3.`id`
+        <if test="value!=null and value.length>0">
+            where code=#{value } or name =#{value } or helpCode=#{value }
+        </if>
     </select>
 </mapper>

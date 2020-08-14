@@ -1,19 +1,24 @@
 package com.itheima.service.impl;
 
 import com.alibaba.dubbo.config.annotation.Service;
+import com.github.pagehelper.Page;
+import com.github.pagehelper.PageHelper;
 import com.itheima.constant.MessageConstant;
 import com.itheima.dao.MemberDao;
 import com.itheima.dao.OrderDao;
 import com.itheima.dao.OrderSettingDao;
+import com.itheima.entity.PageResult;
 import com.itheima.entity.Result;
 import com.itheima.pojo.Member;
 import com.itheima.pojo.Order;
 import com.itheima.pojo.OrderSetting;
 import com.itheima.service.OrderService;
 import com.itheima.utils.DateUtils;
+import org.aspectj.weaver.ast.Or;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.xml.crypto.Data;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -82,8 +87,14 @@ public class OrderServiceImpl implements OrderService {
 
         orderSetting.setReservations(orderSetting.getReservations() + 1);//设置已预约人数+1
         orderSettingDao.editReservationsByOrderDate(orderSetting);
-
         return new Result(true, MessageConstant.ORDER_SUCCESS, order.getId());
+    }
+
+    @Override
+    public PageResult pageQuery(Integer currentPage, Integer pageSize, String queryString) {
+        PageHelper.startPage(currentPage, pageSize);
+        Page<Map<String, Object>> orders = orderDao.pageQuery(queryString);
+        return new PageResult(orders.getTotal(), orders);
     }
 
     @Override
@@ -96,4 +107,109 @@ public class OrderServiceImpl implements OrderService {
         }
         return map;
     }
+
+    // <tr v-for="o in tableData">
+//                                            <td>
+//                                                <input :id="o.id" v-model="setmealIds" type="checkbox" :value="o.id">
+//                                            </td>
+//                                            <td><label :for="o.id">{{o.name}}</label></td>
+//                                            <td><label :for="o.id">{{o.sex == '0' ? '不限' : o.sex == '1' ? '男' :
+//            '女'}}</label></td>
+//                                            <td><label :for="o.id">{{o.remark}}</label></td>
+//                                        </tr>
+//                                        </tbody>
+//    age	"98+9"
+//    birthday	"2020-08-15"
+//    idCard	"++89"
+//    marry	"0"
+//    name	"8998"
+//    orderDate	"2020-08-10"
+//    setmealId	[…]
+//            0	6
+//            1	7
+//            2	9
+//    sex	"1"
+//    telephone	"98+98"
+    @Override
+    public Result add(Map data) throws Exception {
+        List<Integer> setmeaIds = (List<Integer>) data.get("setmealId");
+        for (Integer setmeaId : setmeaIds) {
+//          判断预约重复
+            String orderDate = (String) data.get("orderDate");
+//
+            Date date = DateUtils.parseString2Date(orderDate);//日期
+            OrderSetting byOrderDate = orderSettingDao.findByOrderDate(date);
+            if (byOrderDate == null) {
+                return new Result(false, MessageConstant.HAS_ORDERED);
+            }
+
+
+            //判断预约量
+            int number = byOrderDate.getNumber();//总预约数
+            int reservations = byOrderDate.getReservations();//当前预约数
+            if (number <= reservations) {
+                return new Result(false, MessageConstant.ORDER_FULL);
+            }
+
+
+            // 查询用户号码是否存在
+            String telephone = (String) data.get("telephone");
+            Member byTelephone = memberDao.findByTelephone(telephone);//id查询重复
+            if (byTelephone != null) {
+//               判断套餐用户id及创建日期是否重复
+                Order order = new Order(byTelephone.getId(), date, setmeaId);//封装数据
+                if (orderDao.findByCondition(order) != null) {
+                    return new Result(false, MessageConstant.HAS_ORDERED);
+                }
+            } else {
+                //    age	"98+9"
+//    birthday	"2020-08-15"
+//    idCard	"++89"
+//    marry	"0"
+//    name	"8998"
+//    orderDate	"2020-08-10"
+//    setmealId	[…]
+//            0	6
+//            1	7
+//            2	9
+//    sex	"1"
+//    telephone	"98+98"
+                //用户不存在添加用户
+                byTelephone = new Member();
+                Map map = data;
+
+                String name = String.valueOf(data.get("name"));
+                if (name == null) {
+                    return null;
+                }
+                byTelephone.setName((String) data.get("name"));
+                byTelephone.setPhoneNumber(telephone);
+                byTelephone.setIdCard((String) data.get("idCard"));
+                byTelephone.setSex((String) data.get("sex"));
+                byTelephone.setRegTime(new Date());
+                memberDao.add(byTelephone);
+
+            }
+
+
+//            提交数据
+            Order order = new Order();
+            order.setMemberId(byTelephone.getId());//用户di
+            order.setOrderDate(date);//预约日期
+            order.setOrderStatus(Order.ORDERSTATUS_NO);//到诊状态
+            order.setOrderType(Order.ORDERTYPE_TELEPHONE);//预约方式
+            order.setSetmealId(setmeaId);//添加套餐id
+            orderDao.add(order);
+
+//            更新预约数
+            int reservations1 = byOrderDate.getReservations();
+            byOrderDate.setReservations(reservations1 + 1);
+//            修改数据
+            orderSettingDao.editNumberByOrderDate(byOrderDate);
+
+
+        }
+        return new Result(true, MessageConstant.ORDER_SUCCESS);
+    }
+
 }
